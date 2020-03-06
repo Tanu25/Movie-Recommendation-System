@@ -1,0 +1,264 @@
+import numpy as np # linear algebra
+import pandas as pd # data processing
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from pyspark.ml import feature
+from pyspark.ml import clustering
+from pyspark.ml import Pipeline
+from pyspark.sql import functions as fn
+from pyspark.sql import SparkSession
+from pyspark.ml import feature, regression, evaluation, Pipeline
+from pyspark.sql import functions as fn, Row
+import matplotlib.pyplot as plt
+from pyspark.sql.functions import collect_list
+from pyspark.ml.feature import CountVectorizer
+from pyspark.ml.feature import IDF
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.linalg import VectorUDT
+from pyspark.ml.clustering import KMeans
+
+# Create a spark session
+spark = SparkSession.builder.getOrCreate()
+sc = spark.sparkContext
+
+# Read the data from all files into spark dataframes
+tags_df= spark.read.csv('tag.csv', inferSchema=True, header=True)
+ratings_df= spark.read.csv('rating.csv', inferSchema=True, header=True)
+movies_df= spark.read.csv('movie.csv', inferSchema=True, header=True)
+
+tags_df.show()
+
+tags_dfl=tags_df.groupBy('movieId').agg(collect_list('tag').alias('tag'))
+
+# Fitting and transforming a count vectorizer model to the feature 'tag'
+count_vectorizer_estimator = CountVectorizer().setInputCol('tag').setOutputCol('features')
+count_vectorizer_transformer = count_vectorizer_estimator.fit(tags_dfl)
+count_vect= count_vectorizer_transformer.transform(tags_dfl)
+
+# Extract the vocabulary from the transformed dataframe
+count_vectorizer_transformer.vocabulary
+
+# Calculate the idf scores from the features generated from the count vectorizer model
+idf = IDF().\
+    setInputCol('features').\
+    setOutputCol('tfidf')
+
+# Fit and transform the idf model from the transformed dataframe generated above
+idfs=idf.fit(count_vect)
+transformed =idfs.transform(count_vect)
+transformed.show()
+
+def to_dense(sparse_vector):
+    return Vectors.dense(sparse_vector)
+    
+to_dense_udf = fn.udf(to_dense, VectorUDT())
+transformed.select('tfidf', to_dense_udf('tfidf').alias('dense_tfidf')).show()
+
+pre_pca = transformed.select('movieId', to_dense_udf('tfidf').alias('dense_tfidf'))
+pre_pca.show()
+
+center = feature.StandardScaler(withMean=True, withStd=False, inputCol='dense_tfidf', outputCol='centered_tfidf')
+pca = feature.PCA(k=100, inputCol='centered_tfidf', outputCol='pca_feat')
+
+# Normalizing the features
+norm = feature.Normalizer(inputCol="centered_tfidf", outputCol="norm_tfidf", p=2.0)
+
+# K Means Clustering Algorithm
+kmeans = clustering.KMeans(k=5, featuresCol='norm_tfidf', predictionCol='kmeans_feat')    
+    
+final_pipe=Pipeline(stages=[center,pca]).fit(pre_pca)
+
+# Best k for K Means Clustering
+cost = np.zeros(20)
+for k in range(2,20):
+    kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("norm_tfidf")
+    model = kmeans.fit(finaltransform.select('norm_tfidf').sample(False,0.1, seed=42))
+    cost[k] = model.computeCost(finaltransform.select('norm_tfidf')) 
+    
+finaltransform.select('pca_feat').show()
+
+# Extracting the PCA components from the pipeline model
+pca_model =final_pipe.stages[-1]
+
+pc_loadings = pd.DataFrame([vocab, pc1, pc2]).T.rename(columns={0: 'word',1: 'load_pc1',2: 'load_pc2',})
+
+# smallest and biggest loadings of pc1
+pd.concat((pc_loadings.sort_values('load_pc1').head(), 
+           pc_loadings.sort_values('load_pc1').tail()))
+           
+# smallest and biggest loadings of pc2
+pd.concat((pc_loadings.sort_values('load_pc2').head(), 
+           pc_loadings.sort_values('load_pc2').tail()))
+
+movieId=finaltransform.select('movieId').toPandas()
+
+lst1 = range(2133)
+lst2 = range(2133)
+lst3 = range(2133)
+
+percentile_list = pd.DataFrame(
+    {'movieId': lst1,
+     'pc1': lst2,
+     'pc2': lst3
+    })
+
+percentile_list.iloc[:,0]=movieId
+percentile_list.iloc[:,1]=pc1
+percentile_list.iloc[:,2]=pc2
+
+exploded_df = final_pipe.transform(pre_pca).select('movieId', 
+                                      vector_select('pca_feat', fn.lit(0)).alias('pc_1'),
+                                      vector_select('pca_feat', fn.lit(1)).alias('pc_2'),
+vector_select('pca_feat', fn.lit(2)).alias('pc_3'),
+vector_select('pca_feat', fn.lit(3)).alias('pc_4'),
+vector_select('pca_feat', fn.lit(4)).alias('pc_5'),
+vector_select('pca_feat', fn.lit(5)).alias('pc_6'),
+vector_select('pca_feat', fn.lit(6)).alias('pc_7'),
+vector_select('pca_feat', fn.lit(7)).alias('pc_8'),
+vector_select('pca_feat', fn.lit(8)).alias('pc_9'),
+vector_select('pca_feat', fn.lit(9)).alias('pc_10'),
+vector_select('pca_feat', fn.lit(10)).alias('pc_11'),
+vector_select('pca_feat', fn.lit(11)).alias('pc_12'),
+vector_select('pca_feat', fn.lit(12)).alias('pc_13'),
+vector_select('pca_feat', fn.lit(13)).alias('pc_14'),
+vector_select('pca_feat', fn.lit(14)).alias('pc_15'),
+vector_select('pca_feat', fn.lit(15)).alias('pc_16'),
+vector_select('pca_feat', fn.lit(16)).alias('pc_17'),
+vector_select('pca_feat', fn.lit(17)).alias('pc_18'),
+vector_select('pca_feat', fn.lit(18)).alias('pc_19'),
+vector_select('pca_feat', fn.lit(19)).alias('pc_20'),
+vector_select('pca_feat', fn.lit(20)).alias('pc_21'),
+vector_select('pca_feat', fn.lit(21)).alias('pc_22'),
+vector_select('pca_feat', fn.lit(22)).alias('pc_23'),
+vector_select('pca_feat', fn.lit(23)).alias('pc_24'),
+vector_select('pca_feat', fn.lit(24)).alias('pc_25'),
+vector_select('pca_feat', fn.lit(25)).alias('pc_26'),
+vector_select('pca_feat', fn.lit(26)).alias('pc_27'),
+vector_select('pca_feat', fn.lit(27)).alias('pc_28'),
+vector_select('pca_feat', fn.lit(28)).alias('pc_29'),
+vector_select('pca_feat', fn.lit(29)).alias('pc_30'),
+vector_select('pca_feat', fn.lit(30)).alias('pc_31'),
+vector_select('pca_feat', fn.lit(31)).alias('pc_32'),
+vector_select('pca_feat', fn.lit(32)).alias('pc_33'),
+vector_select('pca_feat', fn.lit(33)).alias('pc_34'),
+vector_select('pca_feat', fn.lit(34)).alias('pc_35'),
+vector_select('pca_feat', fn.lit(35)).alias('pc_36'),
+vector_select('pca_feat', fn.lit(36)).alias('pc_37'),
+vector_select('pca_feat', fn.lit(37)).alias('pc_38'),
+vector_select('pca_feat', fn.lit(38)).alias('pc_39'),
+vector_select('pca_feat', fn.lit(39)).alias('pc_40'),
+vector_select('pca_feat', fn.lit(40)).alias('pc_41'),
+vector_select('pca_feat', fn.lit(41)).alias('pc_42'),
+vector_select('pca_feat', fn.lit(42)).alias('pc_43'),
+vector_select('pca_feat', fn.lit(43)).alias('pc_44'),
+vector_select('pca_feat', fn.lit(44)).alias('pc_45'),
+vector_select('pca_feat', fn.lit(45)).alias('pc_46'),
+vector_select('pca_feat', fn.lit(46)).alias('pc_47'),
+vector_select('pca_feat', fn.lit(47)).alias('pc_48'),
+vector_select('pca_feat', fn.lit(48)).alias('pc_49'),
+vector_select('pca_feat', fn.lit(49)).alias('pc_50'),
+vector_select('pca_feat', fn.lit(50)).alias('pc_51'),
+vector_select('pca_feat', fn.lit(51)).alias('pc_52'),
+vector_select('pca_feat', fn.lit(52)).alias('pc_53'),
+vector_select('pca_feat', fn.lit(53)).alias('pc_54'),
+vector_select('pca_feat', fn.lit(54)).alias('pc_55'),
+vector_select('pca_feat', fn.lit(55)).alias('pc_56'),
+vector_select('pca_feat', fn.lit(56)).alias('pc_57'),
+vector_select('pca_feat', fn.lit(57)).alias('pc_58'),
+vector_select('pca_feat', fn.lit(58)).alias('pc_59'),
+vector_select('pca_feat', fn.lit(59)).alias('pc_60'),
+vector_select('pca_feat', fn.lit(60)).alias('pc_61'),
+vector_select('pca_feat', fn.lit(61)).alias('pc_62'),
+vector_select('pca_feat', fn.lit(62)).alias('pc_63'),
+vector_select('pca_feat', fn.lit(63)).alias('pc_64'),
+vector_select('pca_feat', fn.lit(64)).alias('pc_65'),
+vector_select('pca_feat', fn.lit(65)).alias('pc_66'),
+vector_select('pca_feat', fn.lit(66)).alias('pc_67'),
+vector_select('pca_feat', fn.lit(67)).alias('pc_68'),
+vector_select('pca_feat', fn.lit(68)).alias('pc_69'),
+vector_select('pca_feat', fn.lit(69)).alias('pc_70'),
+vector_select('pca_feat', fn.lit(70)).alias('pc_71'),
+vector_select('pca_feat', fn.lit(71)).alias('pc_72'),
+vector_select('pca_feat', fn.lit(72)).alias('pc_73'),
+vector_select('pca_feat', fn.lit(73)).alias('pc_74'),
+vector_select('pca_feat', fn.lit(74)).alias('pc_75'),
+vector_select('pca_feat', fn.lit(75)).alias('pc_76'),
+vector_select('pca_feat', fn.lit(76)).alias('pc_77'),
+vector_select('pca_feat', fn.lit(77)).alias('pc_78'),
+vector_select('pca_feat', fn.lit(78)).alias('pc_79'),
+vector_select('pca_feat', fn.lit(79)).alias('pc_80'),
+vector_select('pca_feat', fn.lit(80)).alias('pc_81'),
+vector_select('pca_feat', fn.lit(81)).alias('pc_82'),
+vector_select('pca_feat', fn.lit(82)).alias('pc_83'),
+vector_select('pca_feat', fn.lit(83)).alias('pc_84'),
+vector_select('pca_feat', fn.lit(84)).alias('pc_85'),
+vector_select('pca_feat', fn.lit(85)).alias('pc_86'),
+vector_select('pca_feat', fn.lit(86)).alias('pc_87'),
+vector_select('pca_feat', fn.lit(87)).alias('pc_88'),
+vector_select('pca_feat', fn.lit(88)).alias('pc_89'),
+vector_select('pca_feat', fn.lit(89)).alias('pc_90'),
+vector_select('pca_feat', fn.lit(90)).alias('pc_91'),
+vector_select('pca_feat', fn.lit(91)).alias('pc_92'),
+vector_select('pca_feat', fn.lit(92)).alias('pc_93'),
+vector_select('pca_feat', fn.lit(93)).alias('pc_94'),
+vector_select('pca_feat', fn.lit(94)).alias('pc_95'),
+vector_select('pca_feat', fn.lit(95)).alias('pc_96'),
+vector_select('pca_feat', fn.lit(96)).alias('pc_97'),
+vector_select('pca_feat', fn.lit(97)).alias('pc_98'),
+vector_select('pca_feat', fn.lit(98)).alias('pc_99'),
+vector_select('pca_feat', fn.lit(99)).alias('pc_100'))
+
+exploded_df.show()
+
+movie_pca = exploded_df.join(movies_df,how='inner',on='movieId').drop('genres')#.show()
+def pcvalue(movieID,i):    
+    return movie_pca[fn.col('movieId')==movieID].select('pc_'+str(i)).toPandas().iloc[:,0]
+
+def np_pcvalue(movieID,i):    
+    return np_pca[][1]
+
+pd_df =movie_pca.toPandas()
+pd_pca=pd_df.iloc[:,:-1]
+np_pca=pd_pca.values
+
+pd_df.set_index("movieId", inplace=True)
+
+pd_df.head()
+
+def recommendmea(movieID,k):  
+    i, j = np.where(np_pca == movieID)
+    dvector= np_pca[i,1:k+1]
+    distances=np.sqrt(np.sum(np.square(np_pca[:,1:k+1]-dvector),axis=1))
+    ind = np.argpartition(distances, -4)[-4:]
+    return pd_df.loc[np_pca[distances.argsort()[1:6],0]].index
+
+def recommends(movieID,k):  
+    i, j = np.where(np_pca == movieID)
+    dvector= np_pca[i,1:k+1]
+    distances=np.sqrt(np.sum(np.square(np_pca[:,1:k+1]-dvector),axis=1))
+    ind = np.argpartition(distances, -4)[-4:]
+    print('Recommended Movies')
+    return pd_df.loc[np_pca[distances.argsort()[1:6],0]]['title']
+
+recommendmea(1,2)
+recommends(1,25)
+
+data = (advent,myst,drama )
+colors = ("red", "green","blue")
+groups = ("Adventure", "Mystery","Drama")
+ 
+# Create plot
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1, facecolor="1.0")
+ 
+for data, color, group in zip(data, colors, groups):
+    x, y = data
+    ax.scatter(x, y, alpha=0.8, c=color, edgecolors='none', s=30, label=group)
+ 
+plt.title('scatter plot with top 2 PCA Loadings')
+plt.legend(loc=2)
+plt.ylim(bottom=-50, top=50)   # set the ylim to bottom, top
+plt.xlim(-30,30)
+plt.show()
